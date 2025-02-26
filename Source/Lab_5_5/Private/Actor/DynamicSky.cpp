@@ -3,8 +3,10 @@
 
 #include "Actor/DynamicSky.h"
 #include "Components/DirectionalLightComponent.h"
+#include "Components/ExponentialHeightFogComponent.h"
 #include "Components/SkyAtmosphereComponent.h"
 #include "Components/SkyLightComponent.h"
+#include "DataAsset/WeatherDataAssetBase.h"
 
 ADynamicSky::ADynamicSky()
 {
@@ -29,6 +31,10 @@ ADynamicSky::ADynamicSky()
 	SkyLight = CreateDefaultSubobject<USkyLightComponent>(TEXT("SkyLight"));
 	SkyLight->SetupAttachment(RootComponent);
 
+	ExponentialHeightFog = CreateDefaultSubobject<UExponentialHeightFogComponent>(TEXT("ExponentialHeightFog"));
+	ExponentialHeightFog->SetVolumetricFog(true);
+	ExponentialHeightFog->SetupAttachment(RootComponent);
+	
 	/**
 	 * TODO (rubenmontes): Para mejorar rendimiento desactivarlo, usar un Recapture Scene para recalcular manualmente iluminacion cuando cambie la fase del dia. De momento dejarlo asi.
 	 */
@@ -37,6 +43,7 @@ ADynamicSky::ADynamicSky()
 
 void ADynamicSky::OnConstruction(const FTransform& Transform)
 {
+	HandleWeatherSettings();
 	HandleSunRotation();
 	HandleMoonRotation();
 	HandleSunMoonVisibility();
@@ -61,7 +68,7 @@ void ADynamicSky::HandleMoonRotation()
 	FRotator MoonRotation = FRotator(MoonRotationPitch, 0.f, 0.f);
 	MoonDirectionalLight->SetWorldRotation(MoonRotation);
 
-	//Rotation before dawn
+	// Rotation before dawn
 	MoonRotationPitch = MapRangeUnclamped(TimeOfDay, 0.f, DawnTime - MoonLightOffsetTime, -90.f, 0.f);
 	MoonRotation = FRotator(MoonRotationPitch, 0.f, 0.f);
 	MoonDirectionalLight->SetWorldRotation(MoonRotation);
@@ -79,9 +86,41 @@ bool ADynamicSky::IsDayTime()
 	return TimeOfDay > (DawnTime - MoonLightOffsetTime) && TimeOfDay < (DuskTime + MoonLightOffsetTime); 
 }
 
+void ADynamicSky::HandleWeatherSettings()
+{
+	SetWeatherLightingProperties();
+}
+
+void ADynamicSky::SetWeatherLightingProperties()
+{
+	if (IsDayTime() && IsValid(CurrentWeatherPreset))
+	{
+		// SunDirectionalLight 
+		SunDirectionalLight->SetIntensity(CurrentWeatherPreset->DirectionalLightSettings.Intensity);
+		SunDirectionalLight->SetLightColor(CurrentWeatherPreset->DirectionalLightSettings.LightColor);
+		SunDirectionalLight->SetLightSourceAngle(CurrentWeatherPreset->DirectionalLightSettings.SourceAngle);
+		SunDirectionalLight->SetTemperature(CurrentWeatherPreset->DirectionalLightSettings.Temperature);
+
+		// Sky Atmosphere
+		SkyAtmosphere->SetMultiScatteringFactor(CurrentWeatherPreset->SkyAtmosphereSettings.MultiScattering);
+		SkyAtmosphere->SetMieScatteringScale(CurrentWeatherPreset->SkyAtmosphereSettings.MieScatteringScale);
+		SkyAtmosphere->SetMieAbsorptionScale(CurrentWeatherPreset->SkyAtmosphereSettings.MieAbsorptionScale);
+		SkyAtmosphere->SetMieAnisotropy(CurrentWeatherPreset->SkyAtmosphereSettings.MieAnisotropy);
+		SkyAtmosphere->SetAerialPespectiveViewDistanceScale(CurrentWeatherPreset->SkyAtmosphereSettings.AerialPerspectiveViewDistanceScale);
+		SkyAtmosphere->SetRayleighScattering(CurrentWeatherPreset->SkyAtmosphereSettings.RayleighScattering);
+		
+		// SkyLight
+		SkyLight->SetIntensity(CurrentWeatherPreset->SkyLightSettings.IntensityScale);
+
+		// ExponentialHeightFog
+		ExponentialHeightFog->SetVolumetricFogExtinctionScale(CurrentWeatherPreset->ExponentialHeightFogSettings.ExtinctionScale);
+		ExponentialHeightFog->SetVolumetricFogEmissive(CurrentWeatherPreset->ExponentialHeightFogSettings.EmissiveColor);
+	}
+}
+
 float ADynamicSky::MapRangeUnclamped(float Value, float InMin, float InMax, float OutMin, float OutMax)
 {
-	return OutMin +  (Value - InMin) / (InMax - InMin) * (OutMax - OutMin);
+	return OutMin + (Value - InMin) / (InMax - InMin) * (OutMax - OutMin);
 }
 
 

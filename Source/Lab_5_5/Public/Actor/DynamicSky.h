@@ -6,6 +6,8 @@
 #include "GameFramework/Actor.h"
 #include "DynamicSky.generated.h"
 
+class UWeatherDataAssetBase;
+
 UCLASS()
 class LAB_5_5_API ADynamicSky : public AActor
 {
@@ -23,6 +25,8 @@ private:
 	void HandleMoonRotation();
 	void HandleSunMoonVisibility();
 	bool IsDayTime();
+	void HandleWeatherSettings();
+	void SetWeatherLightingProperties();
 	
 	//  Offset time before dusk and after dawn that moon is providing still light
 	const float MoonLightOffsetTime = 0.3f; 
@@ -41,6 +45,12 @@ private:
 
 	UPROPERTY(VisibleAnywhere)
 	USkyLightComponent* SkyLight;
+
+	UPROPERTY(VisibleAnywhere)
+	UExponentialHeightFogComponent* ExponentialHeightFog;
+
+	UPROPERTY(EditAnywhere)
+	UWeatherDataAssetBase* CurrentWeatherPreset;
 
 	UPROPERTY(EditAnywhere, meta = (ClampMin = "0.0", ClampMax = "24.0", UIMin = "0.0", UIMax = "24.0"), Category = "Time")
 	float TimeOfDay = 9.f;
